@@ -1,134 +1,148 @@
 import streamlit as st
-import pygame
-import random
-import sys
+import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Nokia Snake Game", layout="centered")
+st.set_page_config(page_title="Nokia Snake", layout="centered")
 
-st.title("🐍 Nokia Style Snake Game")
-st.write("Click **Start Game** to play. Use Arrow Keys!")
+st.title("🐍 Nokia Snake Game")
+st.write("Use Arrow Keys to Play!")
 
-# Button to start the game
-start = st.button("Start Game")
+snake_game = """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #111;
+}
 
-if start:
+canvas {
+    display: block;
+    margin: auto;
+    background-color: black;
+}
+</style>
+</head>
+<body>
 
-    pygame.init()
+<canvas id="game" width="400" height="400"></canvas>
 
-    # Game constants
-    WIDTH, HEIGHT = 400, 400
-    BLOCK = 20
-    SPEED = 10
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Snake Game")
+const grid = 20;
+let count = 0;
+let score = 0;
 
-    clock = pygame.time.Clock()
-    font = pygame.font.SysFont("Arial", 25)
+let snake = {
+    x: 160,
+    y: 160,
+    cells: [],
+    maxCells: 4,
+    dx: grid,
+    dy: 0
+};
 
-    # Colors (Retro Nokia feel)
-    BLACK = (10, 10, 10)
-    GREEN = (0, 255, 70)
-    FOOD_COLOR = (255, 60, 60)
+let apple = {
+    x: 320,
+    y: 320
+};
 
-    def draw_snake(snake):
-        for block in snake:
-            pygame.draw.rect(screen, GREEN, (block[0], block[1], BLOCK, BLOCK))
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max-min)) + min;
+}
 
-    def message(text):
-        msg = font.render(text, True, GREEN)
-        screen.blit(msg, [WIDTH / 6, HEIGHT / 3])
+function loop() {
+    requestAnimationFrame(loop);
 
-    def game_loop():
+    if (++count < 6) return;
+    count = 0;
 
-        x = WIDTH // 2
-        y = HEIGHT // 2
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-        dx = 0
-        dy = 0
+    snake.x += snake.dx;
+    snake.y += snake.dy;
 
-        snake = []
-        snake_length = 1
+    // wall wrap (classic Nokia feel)
+    if (snake.x < 0) snake.x = canvas.width - grid;
+    else if (snake.x >= canvas.width) snake.x = 0;
 
-        food_x = random.randrange(0, WIDTH - BLOCK, BLOCK)
-        food_y = random.randrange(0, HEIGHT - BLOCK, BLOCK)
+    if (snake.y < 0) snake.y = canvas.height - grid;
+    else if (snake.y >= canvas.height) snake.y = 0;
 
-        score = 0
-        game_over = False
-        game_close = False
+    snake.cells.unshift({x: snake.x, y: snake.y});
 
-        while not game_over:
+    if (snake.cells.length > snake.maxCells) {
+        snake.cells.pop();
+    }
 
-            while game_close:
-                screen.fill(BLACK)
-                message(f"Game Over! Score: {score} | Press Q-Quit or C-Play Again")
-                pygame.display.update()
+    // draw apple
+    ctx.fillStyle = "red";
+    ctx.fillRect(apple.x, apple.y, grid-1, grid-1);
 
-                for event in pygame.event.get():
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_q:
-                            pygame.quit()
-                            sys.exit()
-                        if event.key == pygame.K_c:
-                            game_loop()
+    // draw snake
+    ctx.fillStyle = "#00ff88";
+    snake.cells.forEach(function(cell, index) {
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    game_over = True
+        ctx.fillRect(cell.x, cell.y, grid-1, grid-1);
 
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_LEFT:
-                        dx = -BLOCK
-                        dy = 0
-                    elif event.key == pygame.K_RIGHT:
-                        dx = BLOCK
-                        dy = 0
-                    elif event.key == pygame.K_UP:
-                        dy = -BLOCK
-                        dx = 0
-                    elif event.key == pygame.K_DOWN:
-                        dy = BLOCK
-                        dx = 0
+        // eating apple
+        if (cell.x === apple.x && cell.y === apple.y) {
+            snake.maxCells++;
+            score++;
 
-            # Wall collision
-            if x >= WIDTH or x < 0 or y >= HEIGHT or y < 0:
-                game_close = True
+            apple.x = getRandomInt(0,20) * grid;
+            apple.y = getRandomInt(0,20) * grid;
+        }
 
-            x += dx
-            y += dy
+        // self collision
+        for (let i = index + 1; i < snake.cells.length; i++) {
+            if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
 
-            screen.fill(BLACK)
+                snake.x = 160;
+                snake.y = 160;
+                snake.cells = [];
+                snake.maxCells = 4;
+                snake.dx = grid;
+                snake.dy = 0;
+                score = 0;
+            }
+        }
+    });
 
-            pygame.draw.rect(screen, FOOD_COLOR, (food_x, food_y, BLOCK, BLOCK))
+    // Score
+    ctx.fillStyle = "white";
+    ctx.font = "16px Arial";
+    ctx.fillText("Score: " + score, 10, 20);
+}
 
-            snake_head = [x, y]
-            snake.append(snake_head)
+document.addEventListener("keydown", function(e) {
 
-            if len(snake) > snake_length:
-                del snake[0]
+    if (e.which === 37 && snake.dx === 0) {
+        snake.dx = -grid;
+        snake.dy = 0;
+    }
+    else if (e.which === 38 && snake.dy === 0) {
+        snake.dy = -grid;
+        snake.dx = 0;
+    }
+    else if (e.which === 39 && snake.dx === 0) {
+        snake.dx = grid;
+        snake.dy = 0;
+    }
+    else if (e.which === 40 && snake.dy === 0) {
+        snake.dy = grid;
+        snake.dx = 0;
+    }
+});
 
-            # Self collision
-            for block in snake[:-1]:
-                if block == snake_head:
-                    game_close = True
+requestAnimationFrame(loop);
+</script>
 
-            draw_snake(snake)
+</body>
+</html>
+"""
 
-            score_text = font.render(f"Score: {score}", True, GREEN)
-            screen.blit(score_text, [10, 10])
-
-            pygame.display.update()
-
-            # Eating food
-            if x == food_x and y == food_y:
-                food_x = random.randrange(0, WIDTH - BLOCK, BLOCK)
-                food_y = random.randrange(0, HEIGHT - BLOCK, BLOCK)
-                snake_length += 1
-                score += 10
-
-            clock.tick(SPEED)
-
-        pygame.quit()
-        sys.exit()
-
-    game_loop()
+components.html(snake_game, height=420)
